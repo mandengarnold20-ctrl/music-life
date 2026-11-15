@@ -1,0 +1,41 @@
+name: music_life
+description: "Music Life — louange, adoration, cultes en direct et vie communautaire."
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.6.0 <4.0.0"     # Flutter 3.27 ou plus récent
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # État & architecture
+  flutter_riverpod: ^2.6.1
+
+  # Backend
+  supabase_flutter: ^2.8.0
+
+  # Lecteurs médias
+  video_player: ^2.9.2
+  chewie: ^1.8.5
+  just_audio: ^0.9.42
+  just_audio_background: ^0.0.1-beta.13   # s'appuie sur audio_service (écran verrouillé)
+  audio_session: ^0.1.21
+
+  # Interface
+  google_fonts: ^6.2.1
+  cached_network_image: ^3.4.1
+  intl: ^0.19.0
+
+  # Divers
+  url_launcher: ^6.3.1
+  shared_preferences: ^2.3.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true

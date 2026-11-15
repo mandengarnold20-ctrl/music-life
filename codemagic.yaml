@@ -1,0 +1,30 @@
+# Fabrication automatique de l'appli Music Life sur Codemagic.
+# Dans Codemagic : choisir ce dépôt, puis « Start new build » › « Music Life — Android ».
+# À la fin, le fichier app-release.apk est téléchargeable et s'installe sur un téléphone Android.
+
+workflows:
+  android:
+    name: Music Life — Android
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+      java: 17
+      vars:
+        # Clé « publishable » : prévue pour être dans l'appli (la sécurité est assurée par la RLS).
+        SUPABASE_URL: https://jlkorgraxfdktbtxlbow.supabase.co
+        SUPABASE_ANON_KEY: sb_publishable_gB_su3gMv60YvIHCqPLQAA_biaaaCn3
+    scripts:
+      - name: Créer les dossiers Android et iOS
+        script: flutter create . --org com.musiclife --project-name music_life --platforms android,ios
+      - name: Réglages Android (audio en arrière-plan, connexion par e-mail, nom de l'appli)
+        script: python3 tool/patch_android.py
+      - name: Télécharger les dépendances
+        script: flutter pub get
+      - name: Fabriquer l'APK
+        script: |
+          flutter build apk --release \
+            --dart-define=SUPABASE_URL=$SUPABASE_URL \
+            --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
+    artifacts:
+      - build/app/outputs/flutter-apk/app-release.apk
