@@ -1,4 +1,5 @@
 import 'package:audio_session/audio_session.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
@@ -21,6 +22,7 @@ class AudioPlayerService {
   bool get isPlaying => _player.playing;
 
   Future<void> _configureSession() async {
+    if (kIsWeb) return; // le navigateur gère lui-même la session audio
     final session = await AudioSession.instance;
     await session.configure(const AudioSessionConfiguration.music());
   }

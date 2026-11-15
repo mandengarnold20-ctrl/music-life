@@ -1,0 +1,14 @@
+{
+  "name": "Music Life",
+  "short_name": "Music Life",
+  "description": "Louange, adoration et cultes en direct.",
+  "lang": "fr",
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#14001F",
+  "theme_color": "#14001F",
+  "icons": [
+    { "src": "icons/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

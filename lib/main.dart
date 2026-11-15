@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,12 +24,15 @@ Future<void> main() async {
     anonKey: Env.supabaseAnonKey,
   );
 
-  // Lecture audio en arrière-plan + contrôles sur l'écran verrouillé.
-  await JustAudioBackground.init(
-    androidNotificationChannelId: 'com.musiclife.app.audio',
-    androidNotificationChannelName: 'Music Life — lecture audio',
-    androidNotificationOngoing: true,
-  );
+  // Lecture audio en arrière-plan + contrôles sur l'écran verrouillé
+  // (applis Android / iOS ; la version web utilise le lecteur du navigateur).
+  if (!kIsWeb) {
+    await JustAudioBackground.init(
+      androidNotificationChannelId: 'com.musiclife.app.audio',
+      androidNotificationChannelName: 'Music Life — lecture audio',
+      androidNotificationOngoing: true,
+    );
+  }
 
   // Dates en français (« dimanche 22 novembre »).
   await initializeDateFormatting('fr_FR');

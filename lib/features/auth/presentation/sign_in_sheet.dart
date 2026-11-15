@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -65,7 +66,8 @@ class _SignInSheetState extends State<_SignInSheet> {
     try {
       await Supabase.instance.client.auth.signInWithOtp(
         email: _email.text.trim(),
-        emailRedirectTo: kAuthRedirect,
+        // Version web : le lien de l'e-mail ramène sur le site lui-même.
+        emailRedirectTo: kIsWeb ? Uri.base.origin : kAuthRedirect,
         data: {'display_name': _name.text.trim()},
       );
       setState(() => _sent = true);
