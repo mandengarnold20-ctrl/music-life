@@ -67,7 +67,7 @@ class _SignInSheetState extends State<_SignInSheet> {
       await Supabase.instance.client.auth.signInWithOtp(
         email: _email.text.trim(),
         // Version web : le lien de l'e-mail ramène sur le site lui-même.
-        emailRedirectTo: kIsWeb ? Uri.base.origin : kAuthRedirect,
+        emailRedirectTo: kIsWeb ? Uri.base.replace(query: '', fragment: '').toString().replaceAll(RegExp(r'[?#]+$'), '') : kAuthRedirect,
         data: {'display_name': _name.text.trim()},
       );
       setState(() => _sent = true);
