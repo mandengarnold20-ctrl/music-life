@@ -207,7 +207,11 @@ function friendly(err) {
   if (/live_requires_url/.test(m)) return 'Pour passer en direct, collez d’abord le lien vidéo (.m3u8).';
   if (/event_dates/.test(m)) return 'La date de fin doit être après la date de début.';
   if (/daily_verses_display_date_key|duplicate key.*display_date/.test(m)) return 'Un verset existe déjà pour cette date.';
-  if (/rate limit|too many/i.test(m)) return 'Trop de demandes. Patientez quelques minutes puis réessayez.';
+  if (/Invalid login credentials/i.test(m)) return 'E-mail ou mot de passe incorrect.';
+  if (/already registered|already exists/i.test(m)) return 'Ce compte existe déjà : choisissez « Se connecter ».';
+  if (/Email not confirmed/i.test(m)) return 'Adresse pas encore confirmée : ouvrez le lien reçu par e-mail.';
+  if (/Password should|at least 6/i.test(m)) return 'Mot de passe trop court (6 caractères minimum).';
+  if (/rate limit|too many/i.test(m)) return 'Trop d’e-mails envoyés pour le moment. Connectez-vous plutôt avec un mot de passe, ou réessayez dans une heure.';
   if (/Failed to fetch|NetworkError/i.test(m)) return 'Pas de connexion internet.';
   return 'Erreur : ' + m;
 }
@@ -864,21 +868,58 @@ function shell(user) {
 
 function loginScreen(msg) {
   const root = $('#root'); root.textContent = '';
+  let mode = 'login';
   const email = h('input', { type: 'email', placeholder: 'votre@email.com', autocomplete: 'email', required: true });
-  const btn = h('button', { class: 'btn primary', style: 'width:100%;margin-top:12px' }, 'Recevoir mon lien de connexion');
-  const info = h('p', {}, msg || 'Entrez votre adresse e-mail : vous recevrez un lien pour vous connecter, sans mot de passe.');
+  const pass = h('input', { type: 'password', placeholder: 'Mot de passe (6 caractères minimum)', autocomplete: 'current-password', style: 'margin-top:10px' });
+  const btn = h('button', { class: 'btn primary', style: 'width:100%;margin-top:12px' });
+  const info = h('p', {});
+  const tabs = h('div', { class: 'quick', style: 'justify-content:center;margin:10px 0 4px' });
+  const modes = [['login', 'Se connecter'], ['signup', 'Créer mon compte'], ['link', 'Lien par e-mail']];
+  const texts = {
+    login: 'Connectez-vous avec votre e-mail et votre mot de passe.',
+    signup: 'Choisissez votre mot de passe. Un administrateur activera ensuite votre accès.',
+    link: 'Vous recevrez un lien de connexion par e-mail (quelques envois par heure au maximum).',
+  };
+  function draw() {
+    tabs.textContent = '';
+    for (const [k, l] of modes) tabs.append(h('button', { type: 'button', class: 'btn small ' + (mode === k ? 'primary' : 'ghost'), onclick: () => { mode = k; msg = null; draw(); } }, l));
+    pass.classList.toggle('hidden', mode === 'link');
+    pass.required = mode !== 'link';
+    pass.autocomplete = mode === 'signup' ? 'new-password' : 'current-password';
+    btn.textContent = { login: 'Se connecter', signup: 'Créer mon compte', link: 'Recevoir mon lien de connexion' }[mode];
+    info.textContent = msg || texts[mode];
+  }
   const form = h('form', { onsubmit: async e => {
     e.preventDefault();
-    btn.disabled = true; btn.textContent = 'Envoi…';
-    const { error } = await sb.auth.signInWithOtp({ email: email.value.trim(), options: { emailRedirectTo: location.origin + location.pathname } });
-    btn.disabled = false; btn.textContent = 'Recevoir mon lien de connexion';
-    if (error) return toast(friendly(error), true);
-    info.innerHTML = '';
-    info.append('✉️ C’est envoyé à ', h('b', {}, email.value.trim()), '. Ouvrez l’e-mail « Magic Link » et touchez le lien. Pensez à regarder dans les spams.');
-  } }, email, btn);
+    const em = email.value.trim(), pw = pass.value, label = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Patientez…';
+    try {
+      if (mode === 'login') {
+        const { error } = await sb.auth.signInWithPassword({ email: em, password: pw });
+        if (error) throw error;
+        return boot();
+      }
+      if (mode === 'signup') {
+        const { data, error } = await sb.auth.signUp({ email: em, password: pw, options: { emailRedirectTo: location.origin + location.pathname } });
+        if (error) throw error;
+        if (data.session) return boot();
+        info.textContent = 'Compte créé. Confirmez-le avec le lien reçu par e-mail, puis connectez-vous ici.';
+        return;
+      }
+      const { error } = await sb.auth.signInWithOtp({ email: em, options: { emailRedirectTo: location.origin + location.pathname } });
+      if (error) throw error;
+      info.textContent = '';
+      info.append('✉️ C’est envoyé à ', h('b', {}, em), '. Ouvrez le DERNIER e-mail reçu et touchez le lien (pensez aux spams).');
+    } catch (err) {
+      toast(friendly(err), true);
+    } finally {
+      btn.disabled = false; btn.textContent = label;
+    }
+  } }, email, pass, btn);
+  draw();
   root.append(h('div', { class: 'center' }, h('div', { class: 'login' },
     h('img', { class: 'logo', src: '../icons/apple-touch-icon.png', alt: 'Music Life' }),
-    h('h1', { style: 'text-align:center;margin-bottom:6px' }, 'Administration'), info, form)));
+    h('h1', { style: 'text-align:center;margin-bottom:6px' }, 'Administration'), tabs, info, form)));
 }
 
 function deniedScreen(user) {
@@ -895,7 +936,10 @@ function deniedScreen(user) {
 
 async function boot() {
   const { data: { session } } = await sb.auth.getSession();
-  if (!session) return loginScreen();
+  if (!session) {
+    const err = new URLSearchParams(location.hash.slice(1)).get('error_description');
+    return loginScreen(err ? 'Ce lien a expiré ou a déjà servi. Connectez-vous avec votre mot de passe ou demandez un nouveau lien.' : null);
+  }
   me = session.user;
   const { data, error } = await sb.from('app_users').select('role').eq('id', me.id).maybeSingle();
   if (error) return loginScreen(friendly(error));
