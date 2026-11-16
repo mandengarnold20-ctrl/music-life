@@ -4,7 +4,7 @@
   <base href="$FLUTTER_BASE_HREF">
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="Music Life — louange, adoration et cultes en direct.">
+  <meta name="description" content="Music Life — louange, adoration et concerts, en direct et hors connexion.">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#14001F">
 
@@ -23,6 +23,40 @@
   </style>
 </head>
 <body>
+  <!-- Lecture des directs (.m3u8) dans Chrome, Edge, Firefox et les TV : hls.js prend le relais
+       quand le navigateur ne sait pas lire ce format tout seul (Safari sur iPhone le lit nativement). -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
+  <script>
+  (function () {
+    var desc = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'src');
+    if (!desc || !window.Hls || !Hls.isSupported()) return;
+    var iOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    function attach(el, url) {
+      if (el.__hls) { el.__hls.destroy(); el.__hls = null; el.__hlsSrc = null; }
+      if (iOS || typeof url !== 'string' || !/\.m3u8(\?|$)/i.test(url)) return false;
+      var hls = new Hls({ lowLatencyMode: true, backBufferLength: 30 });
+      hls.on(Hls.Events.ERROR, function (_, d) {
+        if (!d.fatal) return;
+        if (d.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
+        else if (d.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
+      });
+      el.__hls = hls; el.__hlsSrc = url;
+      hls.loadSource(url);
+      hls.attachMedia(el);
+      return true;
+    }
+    Object.defineProperty(HTMLMediaElement.prototype, 'src', {
+      configurable: true, enumerable: desc.enumerable,
+      get: function () { return this.__hlsSrc || desc.get.call(this); },
+      set: function (v) { if (!attach(this, v)) desc.set.call(this, v); }
+    });
+    var setAttr = Element.prototype.setAttribute;
+    Element.prototype.setAttribute = function (name, value) {
+      if (this instanceof HTMLMediaElement && String(name).toLowerCase() === 'src') { this.src = value; return; }
+      return setAttr.call(this, name, value);
+    };
+  })();
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
