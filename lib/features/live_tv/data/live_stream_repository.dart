@@ -21,7 +21,7 @@ class LiveStreamRepository {
     final rows = await _db
         .from('events')
         .select()
-        .eq('is_live_tv', true)
+        .or('is_live_tv.eq.true,event_type.eq.live_tv')
         .gte('start_date', DateTime.now().toUtc().toIso8601String())
         .order('start_date')
         .limit(limit);

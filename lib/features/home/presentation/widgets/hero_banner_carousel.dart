@@ -9,10 +9,12 @@ import '../../domain/home_banner.dart';
 
 /// Bannière principale (Hero Banner) défilant automatiquement toutes les 6 s.
 class HeroBannerCarousel extends StatefulWidget {
-  const HeroBannerCarousel({super.key, required this.banners, required this.onOpen});
+  const HeroBannerCarousel({super.key, required this.banners, required this.onOpen, this.wide = false});
 
   final List<HomeBanner> banners;
   final ValueChanged<HomeBanner> onOpen;
+  /// Grand écran (tablette, ordinateur, TV) : bannière plus large que haute.
+  final bool wide;
 
   @override
   State<HeroBannerCarousel> createState() => _HeroBannerCarouselState();
@@ -47,7 +49,7 @@ class _HeroBannerCarouselState extends State<HeroBannerCarousel> {
     return Column(
       children: [
         AspectRatio(
-          aspectRatio: 4 / 3.4,
+          aspectRatio: widget.wide ? 21 / 8 : 4 / 3.4,
           child: PageView.builder(
             controller: _page,
             itemCount: widget.banners.length,

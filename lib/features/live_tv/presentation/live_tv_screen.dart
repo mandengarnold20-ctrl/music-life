@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/analytics/analytics_service.dart';
 import '../../../core/media/audio_player_service.dart';
 import '../../../core/media/hls_video_player.dart';
 import '../../../core/router/tab_provider.dart';
@@ -68,6 +69,7 @@ class _LiveView extends ConsumerWidget {
     final audio = ref.read(audioPlayerServiceProvider);
     ref.read(liveAudioModeProvider.notifier).state = enable;
     if (enable) {
+      Analytics.liveView();
       await audio.play(
         id: LiveTvScreen._audioId,
         url: stream.audioUrl!,
@@ -90,7 +92,7 @@ class _LiveView extends ConsumerWidget {
     if (audioMode) {
       player = AudioOnlyPanel(title: stream.title);
     } else if (tabVisible) {
-      player = HlsVideoPlayer(url: stream.hlsUrl!, isLive: true);
+      player = HlsVideoPlayer(url: stream.hlsUrl!, isLive: true, onStarted: Analytics.liveView);
     } else {
       player = const AspectRatio(aspectRatio: 16 / 9, child: ColoredBox(color: Colors.black));
     }

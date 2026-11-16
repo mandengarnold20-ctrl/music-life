@@ -1,5 +1,5 @@
 /// Destination d'une bannière d'accueil.
-enum BannerTarget { none, live, media, event, url }
+enum BannerTarget { none, live, media, event, url, album, playlist, profile }
 
 /// Bannière principale pilotée par l'admin (table `home_banners`).
 class HomeBanner {

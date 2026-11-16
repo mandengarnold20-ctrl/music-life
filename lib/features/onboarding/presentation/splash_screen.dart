@@ -71,7 +71,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'LOUANGE · ADORATION · DIRECT',
+                      'LOUANGE · ADORATION · CONCERTS',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
                             color: AppColors.mist,
                             letterSpacing: 5,

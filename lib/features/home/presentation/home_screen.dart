@@ -7,8 +7,15 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/glow_background.dart';
 import '../../../core/widgets/live_badge.dart';
 import '../../../core/widgets/music_life_logo.dart';
+import '../../../core/widgets/responsive.dart';
+import '../../../core/widgets/section_header.dart';
+import '../../artists/presentation/artist_screen.dart';
+import '../../events/presentation/events_screen.dart';
 import '../../library/domain/vod_item.dart';
+import '../../library/presentation/library_providers.dart';
+import '../../library/presentation/track_list_screen.dart';
 import '../../library/presentation/vod_player_screen.dart';
+import '../../library/presentation/widgets/music_tiles.dart';
 import '../../live_tv/presentation/live_tv_providers.dart';
 import '../domain/home_banner.dart';
 import 'home_providers.dart';
@@ -16,24 +23,44 @@ import 'widgets/hero_banner_carousel.dart';
 import 'widgets/media_carousel.dart';
 import 'widgets/verse_card.dart';
 
-/// Onglet 1 — Accueil.
-/// Bannière admin, badge EN DIRECT automatique, carrousels, verset du jour,
-/// bouton de soutien (lien externe, conforme App Store).
+/// Onglet 1 — Accueil : bannière, chaîne en direct, clips à la une,
+/// nouveautés, louange, adoration, concerts, top écoutes, playlists, événements.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
-  void _goLive(WidgetRef ref) => ref.read(currentTabProvider.notifier).state = AppTab.live;
+  void _goTo(WidgetRef ref, AppTab tab) => ref.read(currentTabProvider.notifier).state = tab;
 
   Future<void> _openBanner(BuildContext context, WidgetRef ref, HomeBanner b) async {
+    final repo = ref.read(libraryRepositoryProvider);
+    final id = b.targetId;
     switch (b.target) {
       case BannerTarget.live:
-        _goLive(ref);
+        _goTo(ref, AppTab.live);
       case BannerTarget.media:
-        if (b.targetId == null) return;
-        final item = await ref.read(homeRepositoryProvider).mediaById(b.targetId!);
+        if (id == null) return;
+        final item = await repo.mediaById(id);
         if (item != null && context.mounted) openVod(context, item);
+      case BannerTarget.album:
+        if (id == null) return;
+        final a = await repo.albumById(id);
+        if (a != null && context.mounted) {
+          TrackListScreen.open(context, title: a.title, subtitle: a.artistName, coverUrl: a.coverUrl, numbered: true, loader: () => repo.albumTracks(a.id));
+        }
+      case BannerTarget.playlist:
+        if (id == null) return;
+        final p = await repo.playlistById(id);
+        if (p != null && context.mounted) {
+          TrackListScreen.open(context, title: p.title, subtitle: p.description, coverUrl: p.coverUrl, loader: () => repo.playlistTracks(p.id));
+        }
+      case BannerTarget.profile:
+        if (id != null) openArtist(context, id);
       case BannerTarget.event:
-        ref.read(currentTabProvider.notifier).state = AppTab.explore;
+        if (id == null) {
+          _goTo(ref, AppTab.events);
+          return;
+        }
+        final e = await repo.eventById(id);
+        if (e != null && context.mounted) showEventDetails(context, ref, e);
       case BannerTarget.url:
         if (b.targetUrl != null) await _launchExternal(context, b.targetUrl!);
       case BannerTarget.none:
@@ -44,8 +71,11 @@ class HomeScreen extends ConsumerWidget {
   Future<void> _refresh(WidgetRef ref) async {
     ref
       ..invalidate(homeBannersProvider)
-      ..invalidate(featuredVideosProvider)
-      ..invalidate(latestByCategoryProvider)
+      ..invalidate(featuredTracksProvider)
+      ..invalidate(popularTracksProvider)
+      ..invalidate(tracksByCategoryProvider)
+      ..invalidate(playlistsProvider)
+      ..invalidate(upcomingEventsProvider)
       ..invalidate(verseOfTheDayProvider)
       ..invalidate(donationUrlProvider);
     await ref.read(homeBannersProvider.future).catchError((_) => <HomeBanner>[]);
@@ -53,12 +83,19 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isLive = ref.watch(liveStreamProvider).valueOrNull?.canPlay ?? false;
-    final liveTitle = ref.watch(liveStreamProvider).valueOrNull?.title;
+    final live = ref.watch(liveStreamProvider).valueOrNull;
+    final isLive = live?.canPlay ?? false;
     final banners = ref.watch(homeBannersProvider);
     final verse = ref.watch(verseOfTheDayProvider).valueOrNull;
     final donationUrl = ref.watch(donationUrlProvider).valueOrNull;
-    void seeAll() => ref.read(currentTabProvider.notifier).state = AppTab.library;
+    final playlists = ref.watch(playlistsProvider).valueOrNull ?? const [];
+    final events = ref.watch(upcomingEventsProvider(null)).valueOrNull ?? const [];
+    final repo = ref.read(libraryRepositoryProvider);
+    void seeAll() => _goTo(ref, AppTab.library);
+    final wide = Breakpoints.isWide(context);
+
+    Widget carousel(String title, AsyncValue<List<VodItem>> items) =>
+        MediaCarousel(title: title, items: items, onSeeAll: seeAll);
 
     return GlowBackground(
       showDots: false,
@@ -75,89 +112,94 @@ class HomeScreen extends ConsumerWidget {
               toolbarHeight: 68,
               title: const MusicLifeLogo(width: 118, cutoutColor: Color(0xFF14001F)),
               actions: [
-                if (isLive) Padding(padding: const EdgeInsets.only(right: 16), child: LiveBadge(onTap: () => _goLive(ref))),
+                if (isLive) Padding(padding: const EdgeInsets.only(right: 16), child: LiveBadge(onTap: () => _goTo(ref, AppTab.live))),
               ],
             ),
-
-            // Bandeau « en direct maintenant »
-            if (isLive)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-                  child: Material(
-                    color: AppColors.live.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(16),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(16),
-                      onTap: () => _goLive(ref),
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.live_tv_rounded, color: Colors.white),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                liveTitle ?? 'Culte en direct',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontWeight: FontWeight.w700),
-                              ),
+            SliverToBoxAdapter(
+              child: MaxWidth(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (isLive)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                        child: Material(
+                          color: AppColors.live.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(16),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () => _goTo(ref, AppTab.live),
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Row(children: [
+                                const Icon(Icons.live_tv_rounded, color: Colors.white),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(live?.title ?? 'Music Life TV en direct',
+                                      maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
+                                ),
+                                const Text('Regarder', style: TextStyle(color: AppColors.lilacPale, fontWeight: FontWeight.w700)),
+                                const Icon(Icons.chevron_right_rounded, color: AppColors.lilacPale),
+                              ]),
                             ),
-                            const Text('Regarder', style: TextStyle(color: AppColors.lilacPale, fontWeight: FontWeight.w700)),
-                            const Icon(Icons.chevron_right_rounded, color: AppColors.lilacPale),
-                          ],
+                          ),
                         ),
                       ),
+                    banners.maybeWhen(
+                      data: (list) => list.isEmpty
+                          ? const SizedBox.shrink()
+                          : Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: HeroBannerCarousel(banners: list, onOpen: (b) => _openBanner(context, ref, b), wide: wide),
+                            ),
+                      orElse: () => const SizedBox.shrink(),
                     ),
-                  ),
-                ),
-              ),
-
-            // Bannière principale
-            SliverToBoxAdapter(
-              child: banners.maybeWhen(
-                data: (list) => list.isEmpty
-                    ? const SizedBox.shrink()
-                    : Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: HeroBannerCarousel(banners: list, onOpen: (b) => _openBanner(context, ref, b)),
+                    carousel('Clips à la une', ref.watch(featuredTracksProvider)),
+                    carousel('Nouveautés', ref.watch(tracksByCategoryProvider(null))),
+                    carousel('Louange', ref.watch(tracksByCategoryProvider(MediaCategory.louange))),
+                    carousel('Adoration', ref.watch(tracksByCategoryProvider(MediaCategory.adoration))),
+                    if (verse != null) VerseCard(verse: verse),
+                    carousel('Concerts', ref.watch(tracksByCategoryProvider(MediaCategory.concert))),
+                    carousel('Les plus écoutés', ref.watch(popularTracksProvider)),
+                    if (playlists.isNotEmpty) ...[
+                      SectionHeader(title: 'Playlists', onSeeAll: seeAll),
+                      SizedBox(
+                        height: 220,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          itemCount: playlists.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 14),
+                          itemBuilder: (context, i) => playlistCard(context, playlists[i], () => TrackListScreen.open(
+                                context,
+                                title: playlists[i].title,
+                                subtitle: playlists[i].description,
+                                coverUrl: playlists[i].coverUrl,
+                                loader: () => repo.playlistTracks(playlists[i].id),
+                              )),
+                        ),
                       ),
-                loading: () => const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: AspectRatio(aspectRatio: 4 / 3.4, child: _BannerSkeleton()),
+                    ],
+                    if (events.isNotEmpty) ...[
+                      SectionHeader(title: 'Prochains événements', onSeeAll: () => _goTo(ref, AppTab.events)),
+                      SizedBox(
+                        height: 300,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          itemCount: events.length.clamp(0, 8),
+                          separatorBuilder: (_, __) => const SizedBox(width: 14),
+                          itemBuilder: (context, i) =>
+                              EventCard(event: events[i], width: 300, onTap: () => showEventDetails(context, ref, events[i])),
+                        ),
+                      ),
+                    ],
+                    if (donationUrl != null) _SupportCard(url: donationUrl),
+                    const SizedBox(height: 32),
+                  ],
                 ),
-                orElse: () => const SizedBox.shrink(),
               ),
             ),
-
-            SliverToBoxAdapter(
-              child: MediaCarousel(title: 'Vidéos à la une', items: ref.watch(featuredVideosProvider), onSeeAll: seeAll),
-            ),
-            SliverToBoxAdapter(
-              child: MediaCarousel(
-                title: 'Nouveautés Louange',
-                items: ref.watch(latestByCategoryProvider(MediaCategory.louange)),
-                onSeeAll: seeAll,
-              ),
-            ),
-            if (verse != null) SliverToBoxAdapter(child: VerseCard(verse: verse)),
-            SliverToBoxAdapter(
-              child: MediaCarousel(
-                title: 'Derniers Cultes',
-                items: ref.watch(latestByCategoryProvider(MediaCategory.culte)),
-                onSeeAll: seeAll,
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: MediaCarousel(
-                title: 'Magazines & Actualités',
-                items: ref.watch(latestByCategoryProvider(MediaCategory.magazine)),
-                onSeeAll: seeAll,
-              ),
-            ),
-            if (donationUrl != null) SliverToBoxAdapter(child: _SupportCard(url: donationUrl)),
-            const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
         ),
       ),
@@ -173,8 +215,7 @@ Future<void> _launchExternal(BuildContext context, String url) async {
   }
 }
 
-/// « Soutenir l'œuvre » : ouvre le lien de don dans le navigateur
-/// (aucun paiement intégré — conforme aux règles Apple).
+/// « Soutenir Music Life » : lien de don ouvert dans le navigateur (règles App Store).
 class _SupportCard extends StatelessWidget {
   const _SupportCard({required this.url});
 
@@ -198,7 +239,7 @@ class _SupportCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Soutenir l\'œuvre', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                Text('Soutenir Music Life', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                 SizedBox(height: 2),
                 Text('Votre don s\'ouvre dans le navigateur.', style: TextStyle(color: AppColors.mist, fontSize: 13)),
               ],
@@ -213,12 +254,4 @@ class _SupportCard extends StatelessWidget {
       ),
     );
   }
-}
-
-class _BannerSkeleton extends StatelessWidget {
-  const _BannerSkeleton();
-
-  @override
-  Widget build(BuildContext context) =>
-      DecoratedBox(decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(24)));
 }

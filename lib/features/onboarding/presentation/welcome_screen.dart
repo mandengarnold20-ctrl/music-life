@@ -9,7 +9,7 @@ import '../../auth/presentation/sign_in_sheet.dart';
 import '../data/onboarding_prefs.dart';
 
 /// Écran de bienvenue (1re ouverture).
-/// Accroche : « Louange, cultes et communauté, là où vous êtes. »
+/// Accroche : « Louange, adoration et concerts, là où vous êtes. »
 /// avec le mot « êtes » souligné d'un trait qui se dessine.
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -47,7 +47,7 @@ class WelcomeScreen extends StatelessWidget {
                   TextSpan(
                     style: headline,
                     children: [
-                      const TextSpan(text: 'Louange, cultes\net communauté,\nlà où vous '),
+                      const TextSpan(text: 'Louange, adoration\net concerts,\nlà où vous '),
                       WidgetSpan(
                         // « bottom » (et non « baseline ») : compatible avec IntrinsicHeight.
                         alignment: PlaceholderAlignment.bottom,
@@ -59,8 +59,8 @@ class WelcomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  'Suivez les cultes en direct, écoutez la louange même hors connexion '
-                  'et trouvez une église près de chez vous.',
+                  'Écoutez la louange même hors connexion, regardez Music Life TV en direct '
+                  'et ne manquez aucun concert ni aucune sortie d\'album.',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppColors.mist, height: 1.55),
                 ),
                 const Spacer(),

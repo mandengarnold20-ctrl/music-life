@@ -35,23 +35,25 @@ class AudioPlayerService {
     String artist = 'Music Life',
     String? artworkUrl,
     bool isLive = false,
+    bool isFile = false, // fichier téléchargé (hors connexion)
   }) async {
     if (currentId == id && _player.playing) return;
     currentId = id;
     await _player.setAudioSource(
-      AudioSource.uri(
-        Uri.parse(url),
-        tag: MediaItem(
-          id: id,
-          title: title,
-          artist: isLive ? '$artist · EN DIRECT' : artist,
-          artUri: artworkUrl == null ? null : Uri.parse(artworkUrl),
-          extras: {'isLive': isLive},
-        ),
-      ),
+      isFile
+          ? AudioSource.file(url, tag: _tag(id, title, artist, artworkUrl, isLive))
+          : AudioSource.uri(Uri.parse(url), tag: _tag(id, title, artist, artworkUrl, isLive)),
     );
     await _player.play();
   }
+
+  MediaItem _tag(String id, String title, String artist, String? artworkUrl, bool isLive) => MediaItem(
+        id: id,
+        title: title,
+        artist: isLive ? '$artist · EN DIRECT' : artist,
+        artUri: artworkUrl == null ? null : Uri.parse(artworkUrl),
+        extras: {'isLive': isLive},
+      );
 
   Future<void> pause() => _player.pause();
   Future<void> resume() => _player.play();

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,9 +17,15 @@ class HlsVideoPlayer extends StatefulWidget {
     required this.url,
     this.isLive = false,
     this.autoPlay = true,
+    this.isFile = false,
+    this.onStarted,
   });
 
   final String url;
+  /// [url] est un chemin de fichier téléchargé (lecture hors connexion).
+  final bool isFile;
+  /// Appelé une fois quand la lecture démarre (statistiques).
+  final VoidCallback? onStarted;
   final bool isLive;
   final bool autoPlay;
 
@@ -48,10 +56,12 @@ class _HlsVideoPlayerState extends State<HlsVideoPlayer> {
   Future<void> _init() async {
     setState(() => _error = null);
     final uri = Uri.parse(widget.url);
-    final video = VideoPlayerController.networkUrl(
-      uri,
-      formatHint: uri.path.endsWith('.m3u8') ? VideoFormat.hls : null,
-    );
+    final video = widget.isFile
+        ? VideoPlayerController.file(File(widget.url))
+        : VideoPlayerController.networkUrl(
+            uri,
+            formatHint: uri.path.endsWith('.m3u8') ? VideoFormat.hls : null,
+          );
     _video = video;
     try {
       await video.initialize();
@@ -76,6 +86,7 @@ class _HlsVideoPlayerState extends State<HlsVideoPlayer> {
         errorBuilder: (context, message) => _ErrorView(onRetry: _retry),
       );
       setState(() {});
+      if (widget.autoPlay) widget.onStarted?.call();
     } catch (e) {
       if (mounted) setState(() => _error = e);
     }

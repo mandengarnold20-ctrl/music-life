@@ -31,6 +31,8 @@ dependencies:
   # Divers
   url_launcher: ^6.3.1
   shared_preferences: ^2.3.3
+  path_provider: ^2.1.5      # dossier privé des téléchargements
+  http: ^1.2.2                # téléchargement hors connexion
 
 dev_dependencies:
   flutter_test:
